@@ -47,7 +47,7 @@ impl Salsa20 {
             .unwrap();
 
         let key: Vec<_> = key.into_iter()
-            .flat_map(|word| word.to_be_bytes())
+            .flat_map(|word| word.to_le_bytes())
             .collect();
 
         let ciphertext = xor_slices(&word, &key).collect();
@@ -153,9 +153,9 @@ mod tests {
             203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216
         ]);
 
-        let nonce = u64::from_be_bytes([101, 102, 103, 104, 105, 106, 107, 108]);
+        let nonce = u64::from_le_bytes([101, 102, 103, 104, 105, 106, 107, 108]);
         let mut generator = Keygen::new(seed, split(nonce));
-        generator.current = u64::from_be_bytes([109, 110, 111, 112, 113, 114, 115, 116]);
+        generator.current = u64::from_le_bytes([109, 110, 111, 112, 113, 114, 115, 116]);
 
         let expected = bytes_to_word([
             101, 120, 112, 97, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14,
@@ -207,11 +207,9 @@ mod tests {
     }
 
     fn test_generator(seed: Seed, expected: Word) {
-        let nonce = u64::from_be_bytes([101, 102, 103, 104, 105, 106, 107, 108]);
-        let counter = u64::from_be_bytes([109, 110, 111, 112, 113, 114, 115, 116]);
-        let mut generator = Keygen::new(seed, split(nonce));
-        generator.current = counter;
-
+        let nonce = u64::from_le_bytes([101, 102, 103, 104, 105, 106, 107, 108]);
+        let counter = u64::from_le_bytes([109, 110, 111, 112, 113, 114, 115, 116]);
+        let mut generator = Keygen::with_count(seed, split(nonce), counter);
         let buffer = generator.next().unwrap();
         assert_eq!(buffer, expected);
     }
@@ -282,7 +280,7 @@ mod tests {
                 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31
             ];
 
-            let nonce = u64::from_be_bytes([1, 2, 3, 4, 5, 6, 7, 8]);
+            let nonce = u64::from_le_bytes([1, 2, 3, 4, 5, 6, 7, 8]);
             let mut salsa = Salsa20::with_count(key, nonce, counter);
             let message = [7; 200];
             let encrypted = salsa.encrypt(&message);
