@@ -14,7 +14,7 @@ mod masks {
     pub const HIGH: u64 = LOW << super::size::INT;
 }
 
-mod ops {
+pub mod ops {
     use std::{mem, ops::BitXor};
 
     use super::{size, masks, Word};
@@ -26,7 +26,7 @@ mod ops {
     }
 
     pub fn split(n: u64) -> [u32; size::LONG] {
-        [mod32(n), ((n & masks::HIGH) >> size::INT) as u32]
+        [((n & masks::HIGH) >> size::INT) as u32, mod32(n)]
     }
 
     pub fn mod32(n: u64) -> u32 {
@@ -61,7 +61,7 @@ mod ops {
     /// array representation. Groups of 4 bytes are made to create each integer.
     pub fn words_to_bytes<const S: usize>(words: [u32; S]) -> Vec<u8> {
         words.into_iter()
-            .flat_map(|word| word.to_le_bytes())
+            .flat_map(|word| word.to_be_bytes())
             .collect()
     }
 
@@ -70,7 +70,7 @@ mod ops {
         let mut words = [0; W];
 
         for (i, chunk) in bytes.chunks(4).enumerate() {
-            words[i] = u32::from_le_bytes(chunk.try_into().unwrap());
+            words[i] = u32::from_be_bytes(chunk.try_into().unwrap());
         }
 
         words
@@ -81,7 +81,7 @@ mod ops {
         let len = padded.len();
         padded[len - bytes.len()..].copy_from_slice(bytes);
 
-        u64::from_le_bytes(padded)
+        u64::from_be_bytes(padded)
     }
 
     pub fn xor_slices<'a, 'b, T: BitXor<Output = T> + Copy>(a: &'a [T], b: &'b [T]) -> impl Iterator<Item = T> + 'a + 'b

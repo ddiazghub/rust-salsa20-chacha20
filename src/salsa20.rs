@@ -47,7 +47,7 @@ impl Salsa20 {
             .unwrap();
 
         let key: Vec<_> = key.into_iter()
-            .flat_map(|word| word.to_le_bytes())
+            .flat_map(|word| word.to_be_bytes())
             .collect();
 
         let ciphertext = xor_slices(&word, &key).collect();
@@ -59,9 +59,13 @@ impl Salsa20 {
     pub fn decrypt_word(&mut self, word: &[u8]) -> Vec<u8> {
         xor_slices(&word, &self.keys.pop_front().unwrap()).collect()
     }
+
+    pub fn pad(&self) -> Word {
+        self.keygen.pad()
+    }
 }
 
-struct Keygen {
+pub struct Keygen {
     seed: Seed,
     nonce: [u32; size::LONG],
     current: u64,
@@ -76,7 +80,7 @@ impl Keygen {
         Self::with_count(seed, nonce, 0)
     }
 
-    fn pad(&self) -> Word {
+    pub fn pad(&self) -> Word {
         const CONSTANTS: [u32; 4] = [0x61707865, 0x3320646e, 0x79622d32, 0x6b206574];
 
         let mut word = [0; size::WORD];
@@ -93,18 +97,18 @@ impl Keygen {
         word
     }
 
-    fn quarter_round(pad: &mut [u32], a: usize, b: usize, c: usize, d: usize) {
+    pub fn quarter_round(pad: &mut [u32], a: usize, b: usize, c: usize, d: usize) {
         pad[b] ^= rotate(add_mod(pad[a], pad[d]), 7);
         pad[c] ^= rotate(add_mod(pad[b], pad[a]), 9);
         pad[d] ^= rotate(add_mod(pad[c], pad[b]), 13);
         pad[a] ^= rotate(add_mod(pad[d], pad[c]), 18);
     }
 
-    fn permutate(pad: &Word) -> Word {
+    pub fn permutate(pad: &Word) -> Word {
         const ROUNDS: usize = 20;
         let mut pad = pad.clone();
 
-        for _ in (0..ROUNDS).step_by(2) {
+        for i in (0..ROUNDS).step_by(2) {
             Self::quarter_round(&mut pad, 0, 4, 8, 12);
             Self::quarter_round(&mut pad, 5, 9, 13, 1);
             Self::quarter_round(&mut pad, 10, 14, 2, 6);
@@ -114,6 +118,14 @@ impl Keygen {
             Self::quarter_round(&mut pad, 5, 6, 7, 4);
             Self::quarter_round(&mut pad, 10, 11, 8, 9);
             Self::quarter_round(&mut pad, 15, 12, 13, 14);
+
+            if i == 8 {
+                println!("round 8: i5 = {:x}, i9 = {:x}, i12 = {:x}", pad[5], pad[9], pad[12]);
+            }
+
+            if i == 14 {
+                println!("round 14: i3 = {:x}, i4 = {:x}, i10 = {:x}", pad[3], pad[4], pad[10]);
+            }
         }
 
         pad
